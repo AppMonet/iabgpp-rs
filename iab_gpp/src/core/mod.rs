@@ -35,6 +35,8 @@ pub trait DataRead {
 
     fn read_integer_range(&mut self) -> io::Result<Vec<u16>>;
 
+    fn read_integer_range_set(&mut self) -> io::Result<BTreeSet<u16>>;
+
     fn read_fibonacci_range<T>(&mut self) -> io::Result<Vec<T>>
     where
         T: CheckedAdd + Copy + Num + NumAssignOps + PartialOrd + ToPrimitive;
@@ -116,7 +118,7 @@ where
 
     fn read_integer_range(&mut self) -> io::Result<Vec<u16>> {
         let n = self.read_unsigned::<12, u16>()?;
-        let mut range = vec![];
+        let mut range = Vec::with_capacity(n as usize);
 
         for _ in 0..n {
             let is_group = self.read_bit()?;
@@ -136,12 +138,34 @@ where
         Ok(range)
     }
 
+    fn read_integer_range_set(&mut self) -> io::Result<BTreeSet<u16>> {
+        let n = self.read_unsigned::<12, u16>()?;
+        let mut range = BTreeSet::new();
+
+        for _ in 0..n {
+            let is_group = self.read_bit()?;
+            if is_group {
+                let start = self.read_unsigned::<16, u16>()?;
+                let end = self.read_unsigned::<16, u16>()?;
+
+                for id in start..=end {
+                    range.insert(id);
+                }
+            } else {
+                let id = self.read_unsigned::<16, u16>()?;
+                range.insert(id);
+            }
+        }
+
+        Ok(range)
+    }
+
     fn read_fibonacci_range<N>(&mut self) -> io::Result<Vec<N>>
     where
         N: CheckedAdd + Copy + Num + NumAssignOps + PartialOrd + ToPrimitive,
     {
         let n = self.read_unsigned::<12, u16>()?;
-        let mut range = vec![];
+        let mut range = Vec::with_capacity(n as usize);
         let mut last_id = N::zero();
 
         for _ in 0..n {
@@ -177,7 +201,7 @@ where
         let n = self.read_unsigned::<16, u16>()? as usize;
         let is_int_range = self.read_bit()?;
         if is_int_range {
-            self.read_integer_range().map(|r| r.into_iter().collect())
+            self.read_integer_range_set()
         } else {
             self.read_fixed_bitfield(n)
         }
@@ -185,16 +209,18 @@ where
 
     fn read_array_of_ranges(&mut self) -> io::Result<Vec<Range>> {
         let n = self.read_unsigned::<12, u16>()? as usize;
-        repeat_with(|| {
-            Ok(Range {
+        let mut ranges = Vec::with_capacity(n);
+
+        for _ in 0..n {
+            ranges.push(Range {
                 // todo : impl FromBitStream for Range
                 key: self.read_unsigned::<6, u8>()?,
                 range_type: self.read_unsigned::<2, u8>()?,
                 ids: self.read_optimized_integer_range()?,
-            })
-        })
-        .take(n)
-        .collect()
+            });
+        }
+
+        Ok(ranges)
     }
 
     fn read_n_array_of_ranges<X, Y>(
@@ -207,16 +233,18 @@ where
         Y: UnsignedInteger,
     {
         let n = self.read_unsigned::<12, u16>()? as usize;
-        repeat_with(|| {
-            Ok(GenericRange {
+        let mut ranges = Vec::with_capacity(n);
+
+        for _ in 0..n {
+            ranges.push(GenericRange {
                 // todo : impl FromBitStream for GenericRange
                 key: self.read_unsigned_var::<X>(x)?,
                 range_type: self.read_unsigned_var::<Y>(y)?,
                 ids: self.read_optimized_range()?,
-            })
-        })
-        .take(n)
-        .collect()
+            });
+        }
+
+        Ok(ranges)
     }
 }
 

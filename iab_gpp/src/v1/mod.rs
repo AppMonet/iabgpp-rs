@@ -65,10 +65,10 @@
 use crate::core::{DataRead, base64_bit_reader};
 use crate::sections::{DecodableSection, Section, SectionDecodeError, SectionId, decode_section};
 use bitstream_io::BitRead;
-use fnv::FnvHashMap;
 use num_traits::FromPrimitive;
 use std::io;
 use std::iter::FusedIterator;
+use std::ops::Range;
 use std::slice::Iter;
 use std::str::FromStr;
 use thiserror::Error;
@@ -119,7 +119,8 @@ pub enum GPPDecodeError {
 #[derive(Debug)]
 pub struct GPPString {
     section_ids: Vec<SectionId>,
-    sections: FnvHashMap<SectionId, String>,
+    source: Box<str>,
+    section_ranges: Vec<Range<usize>>,
 }
 
 impl GPPString {
@@ -169,7 +170,7 @@ impl GPPString {
     /// }
     /// ```
     pub fn section(&self, id: SectionId) -> Option<&str> {
-        self.sections.get(&id).map(|s| s.as_str())
+        self.section_index(id).map(|idx| self.section_at(idx))
     }
 
     /// Returns an iterator that yields the list of section IDs present in this GPP string.
@@ -256,10 +257,8 @@ impl GPPString {
     /// present in the string.
     ///
     pub fn decode_section(&self, id: SectionId) -> Result<Section, SectionDecodeError> {
-        let s = self
-            .section(id)
-            .ok_or(SectionDecodeError::MissingSection(id))?;
-        decode_section(id, s)
+        let idx = self.section_index(id).ok_or(SectionDecodeError::MissingSection(id))?;
+        decode_section(id, self.section_at(idx))
     }
 
     /// Decodes and returns a single section of this GPP string.
@@ -298,9 +297,10 @@ impl GPPString {
     where
         T: DecodableSection,
     {
-        self.section(T::ID)
-            .ok_or(SectionDecodeError::MissingSection(T::ID))?
-            .parse()
+        let idx = self
+            .section_index(T::ID)
+            .ok_or(SectionDecodeError::MissingSection(T::ID))?;
+        self.section_at(idx).parse()
     }
 
     /// Decodes and returns all sections present in this GPP string.
@@ -334,8 +334,20 @@ impl GPPString {
     pub fn decode_all_sections(&self) -> Vec<Result<Section, SectionDecodeError>> {
         self.section_ids
             .iter()
-            .map(|id| self.decode_section(*id))
+            .enumerate()
+            .map(|(idx, id)| decode_section(*id, self.section_at(idx)))
             .collect()
+    }
+
+    #[inline]
+    fn section_index(&self, id: SectionId) -> Option<usize> {
+        self.section_ids.iter().position(|&section_id| section_id == id)
+    }
+
+    #[inline]
+    fn section_at(&self, idx: usize) -> &str {
+        let range = &self.section_ranges[idx];
+        &self.source[range.start..range.end]
     }
 }
 
@@ -343,22 +355,19 @@ impl FromStr for GPPString {
     type Err = GPPDecodeError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let (section_ids, sections) = extract_gpp_sections_from_str(s)?;
-
-        let sections = section_ids
-            .iter()
-            .zip(sections)
-            .map(|(&id, s)| (id, s.to_string()))
-            .collect();
+        let (section_ids, section_ranges) = extract_gpp_sections_from_str(s)?;
 
         Ok(Self {
             section_ids,
-            sections,
+            source: s.into(),
+            section_ranges,
         })
     }
 }
 
-fn extract_gpp_sections_from_str(s: &str) -> Result<(Vec<SectionId>, Vec<&str>), GPPDecodeError> {
+fn extract_gpp_sections_from_str(
+    s: &str,
+) -> Result<(Vec<SectionId>, Vec<Range<usize>>), GPPDecodeError> {
     let mut sections_iter = s.split('~');
 
     let header_str = sections_iter.next().ok_or(GPPDecodeError::NoHeaderFound)?;
@@ -388,7 +397,16 @@ fn extract_gpp_sections_from_str(s: &str) -> Result<(Vec<SectionId>, Vec<&str>),
         });
     }
 
-    Ok((section_ids, sections))
+    let base = s.as_ptr() as usize;
+    let section_ranges = sections
+        .into_iter()
+        .map(|section| {
+            let start = section.as_ptr() as usize - base;
+            start..(start + section.len())
+        })
+        .collect();
+
+    Ok((section_ids, section_ranges))
 }
 
 /// Created with the method [`sections`](GPPString::sections).
@@ -401,15 +419,18 @@ impl<'a> Iterator for Sections<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let section_id = self.gpp_str.section_ids.get(self.idx)?;
+        if self.idx >= self.gpp_str.section_ranges.len() {
+            return None;
+        }
+        let section = self.gpp_str.section_at(self.idx);
         self.idx += 1;
-        self.gpp_str.section(*section_id)
+        Some(section)
     }
 }
 
 impl<'a> ExactSizeIterator for Sections<'a> {
     fn len(&self) -> usize {
-        self.gpp_str.section_ids.len()
+        self.gpp_str.section_ranges.len()
     }
 }
 

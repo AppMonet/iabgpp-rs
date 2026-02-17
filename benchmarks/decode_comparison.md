@@ -7,10 +7,10 @@
 
 | Benchmark | Baseline (ns) | Optimized (ns) | Delta |
 |---|---:|---:|---:|
-| `gpp_parse` | 162.38 | 162.43 | +0.03% |
-| `tcf_eu_v2_decode` | 366.98 | 280.21 | -23.65% |
-| `gpp_decode_all_sections` | 783.12 | 672.64 | -14.11% |
+| `gpp_parse` | 162.38 | 113.02 | -30.40% |
+| `tcf_eu_v2_decode` | 366.98 | 283.06 | -22.87% |
+| `gpp_decode_all_sections` | 783.12 | 585.54 | -25.23% |
 
 Notes:
 - Values above use the midpoint estimate from Criterion output (`time: [low mid high]`).
-- Parser throughput improved materially for section decode and decode-all workloads.
+- Parser throughput improved materially for parse and decode-all workloads.
