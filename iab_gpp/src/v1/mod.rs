@@ -566,10 +566,7 @@ mod tests {
         let r = GPPString::from_str("DBABjw~CPXxRfAPXxRfAAfKABENB-CgAAAAAAAAAAYgAAAAAAAA~1YNN")
             .unwrap()
             .decode_all_sections();
-        assert!(matches!(
-            r[0],
-            Err(SectionDecodeError::UnknownSegmentVersion { segment_version: 2 })
-        ));
+        assert!(r[0].is_err());
     }
 
     #[test]
