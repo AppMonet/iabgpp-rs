@@ -1,10 +1,13 @@
-use crate::core::base64::Base64SliceReader;
+use crate::core::base64::Base64BitReader;
 use crate::core::fibonacci::fibonacci_iterator;
-use bitstream_io::{BigEndian, BitRead, BitReader, UnsignedInteger};
+use bitstream_io::{BitRead, UnsignedInteger};
+#[cfg(test)]
+use bitstream_io::{BigEndian, BitReader};
 use num_iter::range_inclusive;
 use num_traits::{CheckedAdd, Num, NumAssignOps, ToPrimitive};
 use std::collections::BTreeSet;
 use std::io;
+#[cfg(test)]
 use std::io::Read;
 use std::iter::repeat_with;
 
@@ -45,6 +48,7 @@ pub trait DataRead {
 
     fn read_optimized_integer_range(&mut self) -> io::Result<BTreeSet<u16>>;
 
+    #[allow(dead_code)]
     fn read_array_of_ranges(&mut self) -> io::Result<Vec<Range>>;
 
     fn read_n_array_of_ranges<X, Y>(
@@ -248,9 +252,8 @@ where
     }
 }
 
-pub(crate) fn base64_bit_reader(r: &[u8]) -> BitReader<impl Read + '_, BigEndian> {
-    let base64_reader = Base64SliceReader::new(r);
-    BitReader::endian(base64_reader, BigEndian)
+pub(crate) fn base64_bit_reader(r: &[u8]) -> Base64BitReader<'_> {
+    Base64BitReader::new(r)
 }
 
 #[cfg(test)]

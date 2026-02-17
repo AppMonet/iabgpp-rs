@@ -1,0 +1,50 @@
+   Compiling iab_gpp v0.1.2 (/Users/nico/Code/github.com/noirotm/iabgpp-rs/iab_gpp)
+warning: method `read_array_of_ranges` is never used
+  --> iab_gpp/src/core/mod.rs:51:8
+   |
+26 | pub trait DataRead {
+   |           -------- method in this trait
+...
+51 |     fn read_array_of_ranges(&mut self) -> io::Result<Vec<Range>>;
+   |        ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `iab_gpp` (lib) generated 1 warning
+    Finished `bench` profile [optimized] target(s) in 3.43s
+     Running benches/decode.rs (target/release/deps/decode-7f621d69445ca81f)
+Benchmarking gpp_parse
+Benchmarking gpp_parse: Warming up for 3.0000 s
+Benchmarking gpp_parse: Collecting 100 samples in estimated 5.0003 s (49M iterations)
+Benchmarking gpp_parse: Analyzing
+gpp_parse               time:   [102.14 ns 102.59 ns 103.21 ns]
+                        change: [-9.0167% -7.4908% -6.3101%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 7 outliers among 100 measurements (7.00%)
+  2 (2.00%) low severe
+  3 (3.00%) low mild
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking tcf_eu_v2_decode
+Benchmarking tcf_eu_v2_decode: Warming up for 3.0000 s
+Benchmarking tcf_eu_v2_decode: Collecting 100 samples in estimated 5.0002 s (18M iterations)
+Benchmarking tcf_eu_v2_decode: Analyzing
+tcf_eu_v2_decode        time:   [275.46 ns 277.01 ns 278.95 ns]
+                        change: [-3.0132% -2.0060% -1.0388%] (p = 0.00 < 0.05)
+                        Performance has improved.
+Found 2 outliers among 100 measurements (2.00%)
+  1 (1.00%) high mild
+  1 (1.00%) high severe
+
+Benchmarking gpp_decode_all_sections
+Benchmarking gpp_decode_all_sections: Warming up for 3.0000 s
+Benchmarking gpp_decode_all_sections: Collecting 100 samples in estimated 5.0015 s (8.0M iterations)
+Benchmarking gpp_decode_all_sections: Analyzing
+gpp_decode_all_sections time:   [600.85 ns 612.94 ns 634.03 ns]
+                        change: [+2.6900% +4.1788% +6.3796%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 5 outliers among 100 measurements (5.00%)
+  2 (2.00%) high mild
+  3 (3.00%) high severe
+
