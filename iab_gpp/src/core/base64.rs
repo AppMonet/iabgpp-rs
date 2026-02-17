@@ -10,130 +10,98 @@ pub enum DecodeError {
     InvalidByte(usize, u8),
 }
 
-pub struct Base64Reader<R>
-where
-    R: Read,
-{
-    inner_reader: R,
-    inner_reader_pos: usize,
-    partial_byte: u8,
-    partial_byte_index: usize,
+pub struct Base64SliceReader<'a> {
+    input: &'a [u8],
+    input_pos: usize,
+    acc: u32,
+    bits: u8,
 }
 
-impl<R> Base64Reader<R>
-where
-    R: Read,
-{
-    pub fn new(r: R) -> Self {
+impl<'a> Base64SliceReader<'a> {
+    pub fn new(input: &'a [u8]) -> Self {
         Self {
-            inner_reader: r,
-            inner_reader_pos: 0,
-            partial_byte: 0,
-            partial_byte_index: 0,
+            input,
+            input_pos: 0,
+            acc: 0,
+            bits: 0,
         }
     }
 }
 
-impl<R> Read for Base64Reader<R>
-where
-    R: Read,
-{
+impl Read for Base64SliceReader<'_> {
     fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        let mut bytes_written = 0;
-        let mut bit_buf = [0];
-        let mut output_byte_index = 0;
+        let mut written = 0usize;
 
-        'bytes: for b in buf.iter_mut() {
-            output_byte_index = 0;
-
-            // 1. write any remaining bits into output
-            if self.partial_byte_index != 0 {
-                let copied_bits = copy_bits(self.partial_byte, self.partial_byte_index, b, 0);
-
-                // 2. update partial byte index, if >= 6, all is written, go back to 0
-                self.partial_byte_index += copied_bits;
-                if self.partial_byte_index >= 6 {
-                    self.partial_byte_index = 0;
-                }
-
-                // 3. update output byte index, if we've completely written a byte, skip to next
-                output_byte_index += copied_bits;
-                if output_byte_index >= 8 {
-                    bytes_written += 1;
-                    continue;
-                }
-            }
-
-            while output_byte_index < 8 {
-                // 4. read next byte from input
-                let read = self.inner_reader.read(&mut bit_buf)?;
-                if read == 0 {
-                    break 'bytes;
-                }
-                self.inner_reader_pos += read;
-
-                // 5. decode into 6 bits value
-                let val = bit_buf[0];
-                self.partial_byte = base64_value(val).ok_or_else(|| {
+        while written < buf.len() {
+            while self.bits < 8 && self.input_pos < self.input.len() {
+                let byte = self.input[self.input_pos];
+                self.input_pos += 1;
+                let value = base64_value(byte).ok_or_else(|| {
                     io::Error::new(
                         io::ErrorKind::InvalidData,
-                        DecodeError::InvalidByte(self.inner_reader_pos - 1, val),
+                        DecodeError::InvalidByte(self.input_pos - 1, byte),
                     )
-                })?;
-
-                // 6. copy bits to output
-                let copied_bits = copy_bits(self.partial_byte, 0, b, output_byte_index);
-
-                self.partial_byte_index += copied_bits;
-                if self.partial_byte_index >= 6 {
-                    self.partial_byte_index = 0;
-                }
-                output_byte_index += copied_bits;
-                if output_byte_index >= 8 {
-                    bytes_written += 1;
-                }
+                })? as u32;
+                self.acc = (self.acc << 6) | value;
+                self.bits += 6;
             }
-        }
 
-        // 7. pad if needed
-        if output_byte_index > 0 && output_byte_index < 8 {
-            bytes_written += 1;
-        }
+            if self.bits >= 8 {
+                self.bits -= 8;
+                buf[written] = ((self.acc >> self.bits) & 0xFF) as u8;
+                self.acc &= (1u32 << self.bits) - 1;
+                written += 1;
+                continue;
+            }
 
-        Ok(bytes_written)
-    }
-}
+            if self.input_pos == self.input.len() && self.bits > 0 {
+                buf[written] = (self.acc << (8 - self.bits)) as u8;
+                self.acc = 0;
+                self.bits = 0;
+                written += 1;
+            }
 
-fn base64_value(b: u8) -> Option<u8> {
-    match b {
-        b'A'..=b'Z' => Some(b - b'A'),
-        b'a'..=b'z' => Some(b - b'a' + 26),
-        b'0'..=b'9' => Some(b - b'0' + 52),
-        b'-' => Some(62),
-        b'_' => Some(63),
-        _ => None,
-    }
-}
-
-fn copy_bits(input: u8, input_offset: usize, output: &mut u8, output_offset: usize) -> usize {
-    let input_size = 6 - input_offset;
-    let mut copied_bits = 0;
-    let mut current_output_offset = 7 - output_offset;
-
-    for i in (0..input_size).rev() {
-        let bit = (input >> i) & 1;
-        let bit = bit << current_output_offset;
-
-        *output |= bit;
-        copied_bits += 1;
-
-        if current_output_offset == 0 {
             break;
         }
-        current_output_offset -= 1;
+
+        Ok(written)
+    }
+}
+
+const INVALID_B64_VALUE: i8 = -1;
+
+const BASE64_DECODE_TABLE: [i8; 256] = make_base64_decode_table();
+
+const fn make_base64_decode_table() -> [i8; 256] {
+    let mut table = [INVALID_B64_VALUE; 256];
+
+    let mut i = 0usize;
+    while i < 26 {
+        table[b'A' as usize + i] = i as i8;
+        table[b'a' as usize + i] = (i + 26) as i8;
+        i += 1;
     }
 
-    copied_bits
+    i = 0;
+    while i < 10 {
+        table[b'0' as usize + i] = (i + 52) as i8;
+        i += 1;
+    }
+
+    table[b'-' as usize] = 62;
+    table[b'_' as usize] = 63;
+
+    table
+}
+
+#[inline]
+fn base64_value(b: u8) -> Option<u8> {
+    let v = BASE64_DECODE_TABLE[b as usize];
+    if v >= 0 {
+        Some(v as u8)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -156,7 +124,7 @@ mod tests {
     #[test_case("DBABM" => vec![12, 16, 1, 48] ; "simple header")]
     #[test_case("" => is empty ; "empty string")]
     fn test_base64_reader(s: &str) -> Vec<u8> {
-        let mut r = Base64Reader::new(s.as_bytes());
+        let mut r = Base64SliceReader::new(s.as_bytes());
         let mut buf = vec![0; 32];
         let n = r.read(&mut buf).unwrap();
         buf.truncate(n);
@@ -167,7 +135,7 @@ mod tests {
     #[test_case("===" => matches DecodeError::InvalidByte(0, b'=') ; "equal signs")]
     #[test_case("a  " => matches DecodeError::InvalidByte(1, b' ') ; "whitespaces")]
     fn test_base64_reader_error(s: &str) -> DecodeError {
-        let mut r = Base64Reader::new(s.as_bytes());
+        let mut r = Base64SliceReader::new(s.as_bytes());
         let mut buf = vec![0; 32];
         r.read(&mut buf).unwrap_err().downcast().unwrap()
     }

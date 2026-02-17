@@ -1,0 +1,149 @@
+mise WARN  failed to write cache file: /Users/nico/Library/Caches/mise/rust/1.93.0/list_bin_paths-6869b.msgpack.z Operation not permitted (os error 1)
+mise WARN  failed to write cache file: /Users/nico/Library/Caches/mise/rust/1.93.0/exec_env-6869b.msgpack.z Operation not permitted (os error 1)
+    Updating crates.io index
+     Locking 39 packages to latest compatible versions
+      Adding aho-corasick v1.1.4
+      Adding anes v0.1.6
+      Adding bumpalo v3.19.1
+      Adding cast v0.3.0
+      Adding ciborium v0.2.2
+      Adding ciborium-io v0.2.2
+      Adding ciborium-ll v0.2.2
+      Adding criterion v0.5.1 (available: v0.8.2)
+      Adding criterion-plot v0.5.0
+      Adding crossbeam-deque v0.8.6
+      Adding crossbeam-epoch v0.9.18
+      Adding crossbeam-utils v0.8.21
+      Adding crunchy v0.2.4
+      Adding either v1.15.0
+      Adding half v2.7.1
+      Adding hermit-abi v0.5.2
+      Adding is-terminal v0.4.17
+      Adding itertools v0.10.5
+      Adding js-sys v0.3.85
+      Adding libc v0.2.182
+      Adding once_cell v1.21.3
+      Adding oorandom v11.1.5
+      Adding plotters v0.3.7
+      Adding plotters-backend v0.3.7
+      Adding plotters-svg v0.3.7
+      Adding rayon v1.11.0
+      Adding rayon-core v1.13.0
+      Adding regex v1.12.3
+      Adding regex-automata v0.4.14
+      Adding regex-syntax v0.8.9
+      Adding rustversion v1.0.22
+      Adding tinytemplate v1.2.1
+      Adding wasm-bindgen v0.2.108
+      Adding wasm-bindgen-macro v0.2.108
+      Adding wasm-bindgen-macro-support v0.2.108
+      Adding wasm-bindgen-shared v0.2.108
+      Adding web-sys v0.3.85
+      Adding zerocopy v0.8.39
+      Adding zerocopy-derive v0.8.39
+   Compiling proc-macro2 v1.0.106
+   Compiling unicode-ident v1.0.24
+   Compiling quote v1.0.44
+   Compiling serde_core v1.0.228
+   Compiling autocfg v1.5.0
+   Compiling crossbeam-utils v0.8.21
+   Compiling memchr v2.8.0
+   Compiling zmij v1.0.21
+   Compiling serde v1.0.228
+   Compiling zerocopy v0.8.39
+   Compiling prettyplease v0.2.37
+   Compiling serde_json v1.0.149
+   Compiling cfg-if v1.0.4
+   Compiling either v1.15.0
+   Compiling same-file v1.0.6
+   Compiling rayon-core v1.13.0
+   Compiling libc v0.2.182
+   Compiling itoa v1.0.17
+   Compiling walkdir v2.5.0
+   Compiling thiserror v2.0.18
+   Compiling plotters-backend v0.3.7
+   Compiling num-traits v0.2.19
+   Compiling anstyle v1.0.13
+   Compiling clap_lex v1.0.0
+   Compiling regex-syntax v0.8.9
+   Compiling ciborium-io v0.2.2
+   Compiling plotters-svg v0.3.7
+   Compiling clap_builder v4.5.59
+   Compiling core2 v0.4.0
+   Compiling itertools v0.10.5
+   Compiling heck v0.5.0
+   Compiling cast v0.3.0
+   Compiling regex-automata v0.4.14
+   Compiling criterion-plot v0.5.0
+   Compiling bitstream-io v4.9.0
+   Compiling fnv v1.0.7
+   Compiling clap v4.5.59
+   Compiling once_cell v1.21.3
+   Compiling oorandom v11.1.5
+   Compiling anes v0.1.6
+   Compiling regex v1.12.3
+   Compiling syn v2.0.116
+   Compiling test-case-core v3.3.1
+   Compiling crossbeam-epoch v0.9.18
+   Compiling crossbeam-deque v0.8.6
+   Compiling serde_derive v1.0.228
+   Compiling zerocopy-derive v0.8.39
+   Compiling thiserror-impl v2.0.18
+   Compiling strum_macros v0.27.2
+   Compiling num-derive v0.4.2
+   Compiling iab_gpp_derive v0.2.0 (/Users/nico/Code/github.com/noirotm/iabgpp-rs/iab_gpp_derive)
+   Compiling test-case-macros v3.3.1
+   Compiling iab_gpp v0.1.2 (/Users/nico/Code/github.com/noirotm/iabgpp-rs/iab_gpp)
+   Compiling rayon v1.11.0
+   Compiling is-terminal v0.4.17
+   Compiling test-case v3.3.1
+   Compiling num-integer v0.1.46
+   Compiling plotters v0.3.7
+   Compiling num-iter v0.1.45
+   Compiling tinytemplate v1.2.1
+   Compiling assert-json-diff v2.0.2
+   Compiling half v2.7.1
+   Compiling ciborium-ll v0.2.2
+warning: method `read_array_of_ranges` is never used
+  --> iab_gpp/src/core/mod.rs:46:8
+   |
+23 | pub trait DataRead {
+   |           -------- method in this trait
+...
+46 |     fn read_array_of_ranges(&mut self) -> io::Result<Vec<Range>>;
+   |        ^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+   Compiling ciborium v0.2.2
+   Compiling criterion v0.5.1
+warning: `iab_gpp` (lib) generated 1 warning
+    Finished `bench` profile [optimized] target(s) in 14.41s
+     Running benches/decode.rs (target/release/deps/decode-43d8f7c6c5e66e64)
+Benchmarking gpp_parse
+Benchmarking gpp_parse: Warming up for 3.0000 s
+Benchmarking gpp_parse: Collecting 100 samples in estimated 5.0002 s (31M iterations)
+Benchmarking gpp_parse: Analyzing
+gpp_parse               time:   [161.97 ns 162.38 ns 162.86 ns]
+Found 6 outliers among 100 measurements (6.00%)
+  3 (3.00%) high mild
+  3 (3.00%) high severe
+
+Benchmarking tcf_eu_v2_decode
+Benchmarking tcf_eu_v2_decode: Warming up for 3.0000 s
+Benchmarking tcf_eu_v2_decode: Collecting 100 samples in estimated 5.0012 s (13M iterations)
+Benchmarking tcf_eu_v2_decode: Analyzing
+tcf_eu_v2_decode        time:   [366.56 ns 366.98 ns 367.47 ns]
+Found 10 outliers among 100 measurements (10.00%)
+  5 (5.00%) high mild
+  5 (5.00%) high severe
+
+Benchmarking gpp_decode_all_sections
+Benchmarking gpp_decode_all_sections: Warming up for 3.0000 s
+Benchmarking gpp_decode_all_sections: Collecting 100 samples in estimated 5.0006 s (6.7M iterations)
+Benchmarking gpp_decode_all_sections: Analyzing
+gpp_decode_all_sections time:   [740.47 ns 783.12 ns 851.37 ns]
+Found 9 outliers among 100 measurements (9.00%)
+  5 (5.00%) high mild
+  4 (4.00%) high severe
+

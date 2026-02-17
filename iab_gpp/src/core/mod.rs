@@ -1,4 +1,4 @@
-use crate::core::base64::Base64Reader;
+use crate::core::base64::Base64SliceReader;
 use crate::core::fibonacci::fibonacci_iterator;
 use bitstream_io::{BigEndian, BitRead, BitReader, UnsignedInteger};
 use num_iter::range_inclusive;
@@ -220,8 +220,8 @@ where
     }
 }
 
-pub(crate) fn base64_bit_reader<R: Read>(r: R) -> BitReader<impl Read, BigEndian> {
-    let base64_reader = Base64Reader::new(r);
+pub(crate) fn base64_bit_reader(r: &[u8]) -> BitReader<impl Read + '_, BigEndian> {
+    let base64_reader = Base64SliceReader::new(r);
     BitReader::endian(base64_reader, BigEndian)
 }
 
