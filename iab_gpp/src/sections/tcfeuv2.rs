@@ -57,12 +57,91 @@ pub struct Core {
 }
 
 fn parse_publisher_restrictions<R: BitRead + ?Sized>(
-    mut r: &mut R,
+    r: &mut R,
 ) -> Result<Vec<PublisherRestriction>, SectionDecodeError> {
-    Ok(r.read_array_of_ranges()?
-        .into_iter()
-        .map(PublisherRestriction::from)
-        .collect())
+    let num_restrictions = r.read_unsigned::<12, u16>()?;
+    let mut restrictions = Vec::with_capacity(num_restrictions as usize);
+
+    for _ in 0..num_restrictions {
+        let purpose_id = match r.read_unsigned::<6, u8>() {
+            Ok(purpose_id) => purpose_id,
+            Err(source) if source.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(source) => return Err(SectionDecodeError::Read { source }),
+        };
+        let restriction_type = match r.read_unsigned::<2, u8>() {
+            Ok(restriction_type) => restriction_type,
+            Err(source) if source.kind() == std::io::ErrorKind::UnexpectedEof => break,
+            Err(source) => return Err(SectionDecodeError::Read { source }),
+        };
+        let restricted_vendor_ids =
+            match read_publisher_restriction_integer_range_compat(r, restrictions.len())? {
+                Some(ids) => ids,
+                None => break,
+            };
+
+        restrictions.push(PublisherRestriction {
+            purpose_id,
+            restriction_type: RestrictionType::from_u8(restriction_type)
+                .unwrap_or(RestrictionType::Undefined),
+            restricted_vendor_ids,
+        });
+    }
+
+    Ok(restrictions)
+}
+
+fn read_publisher_restriction_integer_range_compat<R: BitRead + ?Sized>(
+    r: &mut R,
+    restriction_idx: usize,
+) -> Result<Option<IdSet>, SectionDecodeError> {
+    let n = match r.read_unsigned::<12, u16>() {
+        Ok(n) => n,
+        Err(source) if source.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+        Err(source) => return Err(SectionDecodeError::Read { source }),
+    };
+
+    let mut ids = IdSet::new();
+    for _entry_idx in 0..n {
+        let is_group = match r.read_bit() {
+            Ok(is_group) => is_group,
+            Err(source) if source.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(None),
+            Err(source) => return Err(SectionDecodeError::Read { source }),
+        };
+
+        let start = match r.read_unsigned::<16, u16>() {
+            Ok(start) => start,
+            Err(source) if source.kind() == std::io::ErrorKind::UnexpectedEof => {
+                return if restriction_idx > 0 {
+                    Ok(None)
+                } else {
+                    Err(SectionDecodeError::Read { source })
+                };
+            }
+            Err(source) => return Err(SectionDecodeError::Read { source }),
+        };
+
+        if is_group {
+            let end = match r.read_unsigned::<16, u16>() {
+                Ok(end) => end,
+                Err(source) if source.kind() == std::io::ErrorKind::UnexpectedEof => {
+                    return if restriction_idx > 0 {
+                        Ok(None)
+                    } else {
+                        Err(SectionDecodeError::Read { source })
+                    };
+                }
+                Err(source) => return Err(SectionDecodeError::Read { source }),
+            };
+
+            for id in start..=end {
+                ids.insert(id);
+            }
+        } else {
+            ids.insert(start);
+        }
+    }
+
+    Ok(Some(ids))
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -122,4 +201,13 @@ mod tests {
     fn error(s: &str) -> SectionDecodeError {
         TcfEuV2::from_str(s).unwrap_err()
     }
+
+    #[test]
+    fn decode_eu_v2_legacy_sample() {
+        let _ = TcfEuV2::from_str(
+            "CQaXJQAQaXJQAAGABCENCCFsAP_gAEPgAAiQKmNR_G_fbXlj8TZ36ftkeYxf99hjrsQxBgaJk24FyJvW7JwW32EzNAzapqYKmRIAu1BBAQNlGIDURUCgKIgVqTDMaESEoTNKJ6BEgBMRA2JYCFxvmwBDWQCY5tp9dld5mB-N7dr8ydzyy4BHn3I5XsS1WBAAAAAAAAAAAAAAAQAAgAAAgAAAAAAAAAAAABAAEAAAIAAAAAACAAAAAAAAAAAAAAAAAACAAAAAQSNgfgAKgAcAB4AFwAVAAuAB-AF0ANAAfABCACKAEcAMsAc4A7gCAQEHAQgAiMBGQEaAI4ASIAn4BUACxAF6AMUAa8A6QB2wD_gIQAR6AlYBMUCZAJlATbApACkQFJgKyAV2AsIBagC4AFxALmAXRAvIC8wF9AMQAYsAyEBkYDRgGmgNTAa8A2gBtgDbgG6AN-AgmBI0BQJA5AAXABQAFQALgAcAA8ACAAF8AMgA1AB4AEwAKoAbwA_QCGAIkATQArQBgADDgGUAZYA2YB3AHfAPYA-IB9gH6AQAAikBFwEYgJEAkwBQYCoAKuAXMAvQBigDaAG4AOIAe0BDoCRAE0gJ2AUOAo8BSIC2AFwALkAXYAu8BhoDJAGTgMuAZmAzmBq4GsgNvAbmFABgCKAXQBI0IAQAA2ACQAjgBKQCdgGiAP6AmUBNgCkAFiALcAX-AwIBtQDhAwAIBNgDahAAMAEgCbAG1CgAQCbAG1DAAQCbAG1DoIQAC4AKAAqABwAEEALgAvgBkAGoAPAAmABTACqAFwAMQAbwA_QCGAIgATQAowBWgDAAGGAMoAaIA2QB3wD2APiAfYB-wEUARiAjoCTAFBgKiAq4BYgC5gF5AMUAbQA3ABxAD2gH2AQ6Ai8BIgCaQE7AKHAUeAqwBYoC2AFugLgAXJAuwC7QF3gMNAY9AyMDJAGTgMqgZYBlwDMwGcwNXA1gBt4D-wI7DwAwAPwBFAERAIyAugCRo4AiACQAKAAfAByAEcAJSATsAzIB_QE2ALEAWyAtwBf4DaoG5gboA4QhAeAAWABQAFwANQAqgBcADEAG8APwAwIB3AHeARQAlIBQYCogKuAXMAxQBtAEOgJpAVYAsUBaIC4AFyALsAZGAycBnID-yIAIAjICYiAAkAB4A5ACOAGZATYAsQBngDagG6EoEQACwAKAAcAB4AEwAKoAXAAxQCGAIkAUYArQBgADKAGiANkAd8A_AD9AIsARgAjoBJQCgwFRAVcAuYBeQDaAG4AOIAe0A-wCHQEXgJEATSAnYBQ4CkwFNAKsAWKAtgBcAC5IF2AXaAw2BkYGSAMngZYBlwDOYGsAayA28B_YEdioAMABQCZQF0FAB4AJAAZABQAC2AOQAfYBBwCOAEpAQgAmwBUgC3AGeQNzA3QtALABqAMAAdwBegD7AKHAU0AqwBcAC7AGZgAAA.f_wAAAAAAAAA",
+        )
+        .unwrap();
+    }
+
 }
