@@ -4,7 +4,6 @@ use bitstream_io::BitRead;
 use iab_gpp_derive::GPPSection;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
 
 // See https://github.com/InteractiveAdvertisingBureau/GDPR-Transparency-and-Consent-Framework/blob/master/Consent%20string%20and%20vendor%20list%20formats%20v1.1%20Final.md
 #[derive(Debug, Eq, PartialEq, GPPSection)]
@@ -33,7 +32,7 @@ fn parse_vendor_consents<R: BitRead + ?Sized>(mut r: &mut R) -> Result<IdSet, Se
     Ok(if is_range {
         // range section
         let default_consent = r.read_bit()?;
-        let ids = BTreeSet::from_iter(r.read_integer_range()?);
+        let ids = IdSet::from_iter(r.read_integer_range()?);
 
         // create final vendor list based on the default consent:
         // only return list of vendors who consent
