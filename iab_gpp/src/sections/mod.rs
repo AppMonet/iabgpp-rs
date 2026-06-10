@@ -55,6 +55,7 @@ use std::str::FromStr;
 use strum_macros::Display;
 use thiserror::Error;
 
+pub mod id_set;
 pub mod tcfcav1;
 pub mod tcfeuv1;
 pub mod tcfeuv2;
@@ -118,7 +119,7 @@ pub trait DecodableSection: FromStr<Err = SectionDecodeError> {
     const ID: SectionId;
 }
 
-pub type IdSet = BTreeSet<u16>;
+pub use id_set::IdSet;
 
 #[derive(Error, Debug)]
 #[non_exhaustive]

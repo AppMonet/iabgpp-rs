@@ -1,11 +1,11 @@
 use crate::core::base64::Base64BitReader;
 use crate::core::fibonacci::fibonacci_iterator;
-use bitstream_io::{BitRead, UnsignedInteger};
+use crate::sections::IdSet;
 #[cfg(test)]
 use bitstream_io::{BigEndian, BitReader};
+use bitstream_io::{BitRead, UnsignedInteger};
 use num_iter::range_inclusive;
 use num_traits::{CheckedAdd, Num, NumAssignOps, ToPrimitive};
-use std::collections::BTreeSet;
 use std::io;
 #[cfg(test)]
 use std::io::Read;
@@ -18,7 +18,7 @@ mod fibonacci;
 pub struct GenericRange<X, Y> {
     pub key: X,
     pub range_type: Y,
-    pub ids: BTreeSet<u16>,
+    pub ids: IdSet,
 }
 
 pub type Range = GenericRange<u8, u8>;
@@ -32,21 +32,21 @@ pub trait DataRead {
 
     fn read_datetime_as_unix_timestamp(&mut self) -> io::Result<u64>;
 
-    fn read_fixed_bitfield(&mut self, bits: usize) -> io::Result<BTreeSet<u16>>;
+    fn read_fixed_bitfield(&mut self, bits: usize) -> io::Result<IdSet>;
 
-    fn read_variable_bitfield(&mut self) -> io::Result<BTreeSet<u16>>;
+    fn read_variable_bitfield(&mut self) -> io::Result<IdSet>;
 
     fn read_integer_range(&mut self) -> io::Result<Vec<u16>>;
 
-    fn read_integer_range_set(&mut self) -> io::Result<BTreeSet<u16>>;
+    fn read_integer_range_set(&mut self) -> io::Result<IdSet>;
 
     fn read_fibonacci_range<T>(&mut self) -> io::Result<Vec<T>>
     where
         T: CheckedAdd + Copy + Num + NumAssignOps + PartialOrd + ToPrimitive;
 
-    fn read_optimized_range(&mut self) -> io::Result<BTreeSet<u16>>;
+    fn read_optimized_range(&mut self) -> io::Result<IdSet>;
 
-    fn read_optimized_integer_range(&mut self) -> io::Result<BTreeSet<u16>>;
+    fn read_optimized_integer_range(&mut self) -> io::Result<IdSet>;
 
     #[allow(dead_code)]
     fn read_array_of_ranges(&mut self) -> io::Result<Vec<Range>>;
@@ -103,8 +103,8 @@ where
     }
 
     // todo: use u16 or generic as input type (spec doesn't restrict bitfield size, but output must be u16)
-    fn read_fixed_bitfield(&mut self, bits: usize) -> io::Result<BTreeSet<u16>> {
-        let mut result = BTreeSet::new();
+    fn read_fixed_bitfield(&mut self, bits: usize) -> io::Result<IdSet> {
+        let mut result = IdSet::new();
         for i in 1..=bits {
             let b = self.read_bit()?;
             if b {
@@ -115,7 +115,7 @@ where
         Ok(result)
     }
 
-    fn read_variable_bitfield(&mut self) -> io::Result<BTreeSet<u16>> {
+    fn read_variable_bitfield(&mut self) -> io::Result<IdSet> {
         let n = self.read_unsigned::<16, u16>()? as usize;
         self.read_fixed_bitfield(n)
     }
@@ -142,9 +142,9 @@ where
         Ok(range)
     }
 
-    fn read_integer_range_set(&mut self) -> io::Result<BTreeSet<u16>> {
+    fn read_integer_range_set(&mut self) -> io::Result<IdSet> {
         let n = self.read_unsigned::<12, u16>()?;
-        let mut range = BTreeSet::new();
+        let mut range = IdSet::new();
 
         for _ in 0..n {
             let is_group = self.read_bit()?;
@@ -192,7 +192,7 @@ where
         Ok(range)
     }
 
-    fn read_optimized_range(&mut self) -> io::Result<BTreeSet<u16>> {
+    fn read_optimized_range(&mut self) -> io::Result<IdSet> {
         let is_fibo = self.read_bit()?;
         if is_fibo {
             Ok(self.read_fibonacci_range::<u16>()?.into_iter().collect())
@@ -201,7 +201,7 @@ where
         }
     }
 
-    fn read_optimized_integer_range(&mut self) -> io::Result<BTreeSet<u16>> {
+    fn read_optimized_integer_range(&mut self) -> io::Result<IdSet> {
         let n = self.read_unsigned::<16, u16>()? as usize;
         let is_int_range = self.read_bit()?;
         if is_int_range {
@@ -316,15 +316,15 @@ mod tests {
             .unwrap()
     }
 
-    #[test_case("10101", 5 => BTreeSet::from_iter([1, 3, 5]))]
-    #[test_case("101010", 6 => BTreeSet::from_iter([1, 3, 5]))]
-    #[test_case("101010", 0 => BTreeSet::from_iter([]))]
-    fn read_fixed_bitfield(s: &str, bits: usize) -> BTreeSet<u16> {
+    #[test_case("10101", 5 => IdSet::from_iter([1, 3, 5]))]
+    #[test_case("101010", 6 => IdSet::from_iter([1, 3, 5]))]
+    #[test_case("101010", 0 => IdSet::from_iter([]))]
+    fn read_fixed_bitfield(s: &str, bits: usize) -> IdSet {
         r(Cursor::new(b(s))).read_fixed_bitfield(bits).unwrap()
     }
 
-    #[test_case("0000000000000101 10101" => BTreeSet::from_iter([1, 3, 5]))]
-    fn read_variable_bitfield(s: &str) -> BTreeSet<u16> {
+    #[test_case("0000000000000101 10101" => IdSet::from_iter([1, 3, 5]))]
+    fn read_variable_bitfield(s: &str) -> IdSet {
         r(Cursor::new(b(s))).read_variable_bitfield().unwrap()
     }
 
@@ -339,15 +339,15 @@ mod tests {
         r(Cursor::new(b(s))).read_fibonacci_range().unwrap()
     }
 
-    #[test_case("1 000000000010 0 0011 1 011 0011" => BTreeSet::from_iter([3, 5, 6, 7, 8]))]
-    #[test_case("0 0000000000000101 10101" => BTreeSet::from_iter([1, 3, 5]))]
-    fn read_optimized_range(s: &str) -> BTreeSet<u16> {
+    #[test_case("1 000000000010 0 0011 1 011 0011" => IdSet::from_iter([3, 5, 6, 7, 8]))]
+    #[test_case("0 0000000000000101 10101" => IdSet::from_iter([1, 3, 5]))]
+    fn read_optimized_range(s: &str) -> IdSet {
         r(Cursor::new(b(s))).read_optimized_range().unwrap()
     }
 
-    #[test_case("0000000000000000 1 000000000010 0 0000000000000011 1 0000000000000101 0000000000001000" => BTreeSet::from_iter([3, 5, 6, 7, 8]) ; "test1")]
-    #[test_case("0000000000000101 0 10101" => BTreeSet::from_iter([1, 3, 5]) ; "test2")]
-    fn read_optimized_int_range(s: &str) -> BTreeSet<u16> {
+    #[test_case("0000000000000000 1 000000000010 0 0000000000000011 1 0000000000000101 0000000000001000" => IdSet::from_iter([3, 5, 6, 7, 8]) ; "test1")]
+    #[test_case("0000000000000101 0 10101" => IdSet::from_iter([1, 3, 5]) ; "test2")]
+    fn read_optimized_int_range(s: &str) -> IdSet {
         r(Cursor::new(b(s))).read_optimized_integer_range().unwrap()
     }
 
@@ -356,19 +356,19 @@ mod tests {
         Range {
             key: 3,
             range_type: 1,
-            ids: BTreeSet::from_iter([1, 3, 5]),
+            ids: IdSet::from_iter([1, 3, 5]),
         },
     ] ; "1 element")]
     #[test_case("000000000010 000011 01 0000000000000101 0 10101 000010 10 0000000000000000 1 000000000010 0 0000000000000011 1 0000000000000101 0000000000001000" => vec![
         Range {
             key: 3,
             range_type: 1,
-            ids: BTreeSet::from_iter([1, 3, 5]),
+            ids: IdSet::from_iter([1, 3, 5]),
         },
         Range {
             key: 2,
             range_type: 2,
-            ids: BTreeSet::from_iter([3, 5, 6, 7, 8]),
+            ids: IdSet::from_iter([3, 5, 6, 7, 8]),
         },
     ] ; "2 elements")]
     fn read_array_of_ranges(s: &str) -> Vec<Range> {
@@ -380,19 +380,19 @@ mod tests {
         Range {
             key: 3,
             range_type: 1,
-            ids: BTreeSet::from_iter([1, 3, 5]),
+            ids: IdSet::from_iter([1, 3, 5]),
         },
     ] ; "1 element")]
     #[test_case("000000000010 000011 01 0 0000000000000101 10101 000010 10 1 000000000010 0 0011 1 011 0011" => vec![
         Range {
             key: 3,
             range_type: 1,
-            ids: BTreeSet::from_iter([1, 3, 5]),
+            ids: IdSet::from_iter([1, 3, 5]),
         },
         Range {
             key: 2,
             range_type: 2,
-            ids: BTreeSet::from_iter([3, 5, 6, 7, 8]),
+            ids: IdSet::from_iter([3, 5, 6, 7, 8]),
         },
     ] ; "2 elements")]
     fn read_n_array_of_ranges(s: &str) -> Vec<GenericRange<u8, u8>> {

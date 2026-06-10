@@ -257,7 +257,9 @@ impl GPPString {
     /// present in the string.
     ///
     pub fn decode_section(&self, id: SectionId) -> Result<Section, SectionDecodeError> {
-        let idx = self.section_index(id).ok_or(SectionDecodeError::MissingSection(id))?;
+        let idx = self
+            .section_index(id)
+            .ok_or(SectionDecodeError::MissingSection(id))?;
         decode_section(id, self.section_at(idx))
     }
 
@@ -341,7 +343,9 @@ impl GPPString {
 
     #[inline]
     fn section_index(&self, id: SectionId) -> Option<usize> {
-        self.section_ids.iter().position(|&section_id| section_id == id)
+        self.section_ids
+            .iter()
+            .position(|&section_id| section_id == id)
     }
 
     #[inline]

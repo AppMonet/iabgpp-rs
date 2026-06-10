@@ -301,11 +301,7 @@ const fn make_base64_decode_table() -> [i8; 256] {
 #[inline]
 fn base64_value(b: u8) -> Option<u8> {
     let v = BASE64_DECODE_TABLE[b as usize];
-    if v >= 0 {
-        Some(v as u8)
-    } else {
-        None
-    }
+    if v >= 0 { Some(v as u8) } else { None }
 }
 
 #[cfg(test)]
