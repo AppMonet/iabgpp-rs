@@ -106,7 +106,9 @@ where
     fn read_fixed_bitfield(&mut self, bits: usize) -> io::Result<IdSet> {
         // Read 32 bits at a time and push each set bit's id; vendor bitfields
         // run to thousands of bits, so per-bit reads dominate otherwise.
-        let mut result = IdSet::new();
+        // Sized for every bit set, capped so a forged length cannot reserve
+        // much before the read fails.
+        let mut result = IdSet::with_capacity(bits.min(4096));
         let mut next_id = 1usize;
         let mut remaining = bits;
         while remaining > 0 {

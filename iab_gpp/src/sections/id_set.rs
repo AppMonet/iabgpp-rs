@@ -25,6 +25,12 @@ impl IdSet {
         Self { ids: Vec::new() }
     }
 
+    pub(crate) fn with_capacity(capacity: usize) -> Self {
+        Self {
+            ids: Vec::with_capacity(capacity),
+        }
+    }
+
     /// Adds an id, returning whether it was newly inserted.
     pub fn insert(&mut self, id: u16) -> bool {
         match self.ids.last() {
