@@ -104,12 +104,21 @@ where
 
     // todo: use u16 or generic as input type (spec doesn't restrict bitfield size, but output must be u16)
     fn read_fixed_bitfield(&mut self, bits: usize) -> io::Result<IdSet> {
+        // Read 32 bits at a time and push each set bit's id; vendor bitfields
+        // run to thousands of bits, so per-bit reads dominate otherwise.
         let mut result = IdSet::new();
-        for i in 1..=bits {
-            let b = self.read_bit()?;
-            if b {
-                result.insert(i as u16);
+        let mut next_id = 1usize;
+        let mut remaining = bits;
+        while remaining > 0 {
+            let take = remaining.min(32) as u32;
+            let mut chunk = self.read_unsigned_var::<u32>(take)? << (32 - take);
+            while chunk != 0 {
+                let offset = chunk.leading_zeros() as usize;
+                result.insert((next_id + offset) as u16);
+                chunk &= !(1u32 << (31 - offset));
             }
+            next_id += take as usize;
+            remaining -= take as usize;
         }
 
         Ok(result)
@@ -152,9 +161,7 @@ where
                 let start = self.read_unsigned::<16, u16>()?;
                 let end = self.read_unsigned::<16, u16>()?;
 
-                for id in start..=end {
-                    range.insert(id);
-                }
+                range.insert_range(start, end);
             } else {
                 let id = self.read_unsigned::<16, u16>()?;
                 range.insert(id);
@@ -261,6 +268,37 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use test_case::test_case;
+
+    #[test]
+    fn fixed_bitfield_matches_bit_by_bit_read() {
+        // xorshift bytes, then every length from 0 to past the end
+        let mut state = 0x2545_F491_4F6C_DD1D_u64;
+        let bytes: Vec<u8> = (0..40)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 7;
+                state ^= state << 17;
+                state as u8
+            })
+            .collect();
+        for offset in 0..8 {
+            for bits in 0..=(bytes.len() * 8 + 8) {
+                let mut r = BitReader::endian(Cursor::new(&bytes), BigEndian);
+                r.skip(offset).unwrap();
+                let fast = r.read_fixed_bitfield(bits).ok();
+
+                let mut r = BitReader::endian(Cursor::new(&bytes), BigEndian);
+                r.skip(offset).unwrap();
+                let slow = (1..=bits)
+                    .map(|id| r.read_bit().map(|set| set.then_some(id as u16)))
+                    .collect::<io::Result<Vec<_>>>()
+                    .ok()
+                    .map(|ids| ids.into_iter().flatten().collect::<IdSet>());
+
+                assert_eq!(fast, slow, "offset {offset}, {bits} bits");
+            }
+        }
+    }
 
     /// Transform a string of literal binary digits into a vector of bytes.
     /// Zeroes will be appended to fill missing bits.

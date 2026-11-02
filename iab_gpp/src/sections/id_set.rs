@@ -48,6 +48,32 @@ impl IdSet {
         }
     }
 
+    /// Adds every id in `start..=end`. A range past the current maximum, the
+    /// decoding common case, is one reserve and a run of pushes.
+    pub fn insert_range(&mut self, start: u16, end: u16) {
+        if start > end {
+            return;
+        }
+        let above = match self.ids.last() {
+            Some(&last) if start <= last => {
+                // The ids already held inside the overlap become the full
+                // span; a span that is already complete costs two searches.
+                let overlap_end = end.min(last);
+                let lo = self.ids.partition_point(|&id| id < start);
+                let hi = self.ids.partition_point(|&id| id <= overlap_end);
+                if hi - lo != usize::from(overlap_end - start) + 1 {
+                    self.ids.splice(lo..hi, start..=overlap_end);
+                }
+                match last.checked_add(1) {
+                    Some(next) if next <= end => next,
+                    _ => return,
+                }
+            }
+            _ => start,
+        };
+        self.ids.extend(above..=end);
+    }
+
     pub fn contains(&self, id: &u16) -> bool {
         self.ids.binary_search(id).is_ok()
     }
@@ -145,6 +171,29 @@ impl<'de> serde::Deserialize<'de> for IdSet {
 #[cfg(test)]
 mod tests {
     use super::IdSet;
+
+    #[test]
+    fn insert_range_matches_inserting_each_id() {
+        let ranges = [
+            (5, 9),
+            (1, 3),
+            (4, 6),
+            (8, 12),
+            (12, 12),
+            (20, 15),
+            (0, 0),
+            (65530, 65535),
+        ];
+        let mut by_range = IdSet::new();
+        let mut by_id = IdSet::new();
+        for (start, end) in ranges {
+            by_range.insert_range(start, end);
+            for id in start..=end {
+                by_id.insert(id);
+            }
+            assert_eq!(by_range, by_id, "after {start}..={end}");
+        }
+    }
 
     #[test]
     fn insert_ascending_and_lookup() {
