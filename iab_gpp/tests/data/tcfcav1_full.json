@@ -4,6 +4,7 @@
     {
       "TcfCaV1": {
         "core": {
+          "segment_version": 1,
           "cmp_id": 1000,
           "cmp_version": 1,
           "consent_language": "BG",
