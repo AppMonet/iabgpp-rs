@@ -15,27 +15,27 @@ readme = "crates-io.md"
 build = "build.rs"
 
 [dependencies]
-bitstream-io = "4.3.0"
+bitstream-io = "4.10.0"
 iab_gpp_derive = { version = "0.2", path = "../iab_gpp_derive" }
-num-derive = "0.4.0"
-num-iter = "0.1.43"
-num-traits = "0.2.16"
-serde = { version = "1.0.217", features = ["derive"], optional = true }
-strum_macros = "0.27.2"
-thiserror = "2.0.12"
+num-derive = "0.5.1"
+num-iter = "0.1.46"
+num-traits = "0.2.19"
+serde = { version = "1.0.229", features = ["derive"], optional = true }
+strum_macros = "0.28.0"
+thiserror = "2.0.21"
 
 [dev-dependencies]
-test-case = "3.2.1"
-serde = "1.0.217"
-serde_json = "1.0.137"
+test-case = "3.4.1"
+serde = "1.0.229"
+serde_json = "1.0.154"
 assert-json-diff = "2.0.2"
-criterion = "0.5.1"
+criterion = "0.8.2"
 
 [build-dependencies]
-prettyplease = "0.2.37"
-proc-macro2 = "1.0.101"
-quote = "1.0.40"
-syn = "2.0.106"
+prettyplease = "0.3.0"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+syn = "3.0.9"
 walkdir = "2.5.0"
 
 [features]
