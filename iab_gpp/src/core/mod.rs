@@ -193,8 +193,8 @@ where
                 }
             } else {
                 let id = self.read_fibonacci_integer::<N>()?;
-                range.push(last_id + id);
-                last_id = id;
+                last_id += id;
+                range.push(last_id);
             }
         }
 
@@ -375,6 +375,7 @@ mod tests {
 
     #[test_case("000000000010 0 0011 1 011 0011" => vec![3, 5, 6, 7, 8])]
     #[test_case("000000000010 0 011 0 1011" => vec![2, 6])]
+    #[test_case("000000000011 0 000011 0 011 0 011" => vec![8, 10, 12] ; "offsets from the previous id")]
     fn read_fibonacci_range(s: &str) -> Vec<u8> {
         r(Cursor::new(b(s))).read_fibonacci_range().unwrap()
     }
